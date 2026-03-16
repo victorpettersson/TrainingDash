@@ -69,7 +69,7 @@ header {
 
 .streak-hero {
   padding: 24px 32px 20px; border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; gap: 32px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
 }
 .streak-number { display: flex; align-items: baseline; gap: 6px; }
 .streak-number .num {
@@ -88,7 +88,7 @@ header {
 
 .goals-section { padding: 20px 32px; border-bottom: 1px solid var(--border); width: 100%; }
 .section-title { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
-.goals-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.goals-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
 .goal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; transition: border-color 0.2s; }
 .goal-card:hover { border-color: var(--accent-dim); }
 .goal-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
@@ -113,7 +113,7 @@ main { padding: 24px 32px; width: 100%; }
 .panel { display: none; }
 .panel.active { display: block; }
 
-.stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 20px; }
 .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 16px 18px; }
 .stat-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
 .stat-value { font-family: 'Barlow Condensed', sans-serif; font-size: 34px; font-weight: 700; color: var(--accent); line-height: 1; }
@@ -181,6 +181,9 @@ tr:hover td { background: var(--surface2); }
 .wow-up { color:var(--accent);font-weight:600; }
 .wow-down { color:var(--accent3); }
 .wow-same { color:var(--muted); }
+@media (max-width:1100px) {
+  .chart-grid[style*="380px"]{grid-template-columns:1fr 1fr !important;}
+}
 @media (max-width:900px) {
   header,.streak-hero,.goals-section,main{padding-left:16px;padding-right:16px;}
   .tabs{padding:0 16px;}
@@ -188,6 +191,12 @@ tr:hover td { background: var(--surface2); }
   .goals-grid{grid-template-columns:1fr 1fr !important;}
   .stat-grid{grid-template-columns:repeat(3,1fr) !important;}
   .streak-number .num{font-size:52px;}
+  #streak-right{display:none !important;}
+}
+@media (max-width:600px) {
+  .goals-grid{grid-template-columns:1fr !important;}
+  .stat-grid{grid-template-columns:repeat(2,1fr) !important;}
+  .streak-meta{gap:16px;}
 }
 </style>
 </head>
@@ -238,7 +247,7 @@ tr:hover td { background: var(--surface2); }
   <main>
     <div class="panel active" id="panel-overview">
       <div class="stat-grid" id="stat-grid"></div>
-      <div class="chart-grid" style="grid-template-columns:1fr 1fr 380px;">
+      <div class="chart-grid" style="grid-template-columns:1fr 1fr 380px;grid-template-rows:auto;">
         <div class="chart-card"><div class="chart-title">Compound Est. 1RM Trends</div><div class="chart-wrap tall"><canvas id="chart-1rm"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">Session Volume (adjusted)</div><div class="chart-wrap tall"><canvas id="chart-vol-session"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">This Week vs Last Week</div><div id="wow-table"></div></div>
