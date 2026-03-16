@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Training Log</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #242424;
+    --accent: #c8f542;
+    --accent2: #42f5c8;
+    --text: #f0f0f0;
+    --muted: #666;
+    --dim: #333;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+    background: var(--bg);
+  }
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 3px;
+    color: var(--accent);
+  }
+  #sync-status {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex; align-items: center; gap: 8px;
+  }
+  #sync-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+  #sync-dot.live { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  #sync-dot.error { background: #f54242; }
+
+  #refresh-btn {
+    background: none; border: 1px solid var(--border);
+    color: var(--muted); padding: 5px 12px;
+    border-radius: 4px; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    transition: all 0.2s;
+  }
+  #refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* TABS */
+  .tabs {
+    display: flex; gap: 0;
+    padding: 0 32px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 14px 20px;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* MAIN */
+  main { padding: 28px 32px; max-width: 1400px; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* STAT CARDS */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+  .stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .stat-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* CHARTS */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .chart-grid.single { grid-template-columns: 1fr; }
+  .chart-grid.thirds { grid-template-columns: 1fr 1fr 1fr; }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+  }
+  .chart-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .chart-wrap { position: relative; height: 220px; }
+  .chart-wrap.tall { height: 300px; }
+
+  /* CONTROLS */
+  .control-row {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 16px; flex-wrap: wrap;
+  }
+  select, input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+  }
+  select:focus, input:focus { border-color: var(--accent); }
+  label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%; border-collapse: collapse;
+    font-size: 13px;
+  }
+  thead tr { border-bottom: 1px solid var(--border); }
+  th {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 12px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  td { padding: 9px 12px; border-bottom: 1px solid #1a1a1a; }
+  tr:hover td { background: var(--surface2); }
+  .rank { font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: var(--dim); }
+  .rank.top { color: var(--accent); }
+  .e1rm-val { font-family: 'Bebas Neue', sans-serif; font-size: 20px; color: var(--accent2); }
+  .weight-val { font-family: 'Bebas Neue', sans-serif; font-size: 18px; }
+
+  /* CALENDAR */
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+  .cal-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  .cal-day-name {
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+  .cal-cell {
+    aspect-ratio: 1;
+    border-radius: 4px;
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    color: var(--muted);
+    position: relative;
+    transition: transform 0.15s;
+    cursor: default;
+  }
+  .cal-cell:hover { transform: scale(1.15); z-index: 2; }
+  .cal-cell.empty { background: transparent; }
+  .cal-cell.trained { color: var(--bg); font-weight: 500; }
+  .cal-cell .cal-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 8px;
+    position: absolute; bottom: 2px;
+    white-space: nowrap; overflow: hidden;
+    width: 100%; text-align: center;
+    padding: 0 2px;
+  }
+
+  /* LOADING */
+  #loading {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 50vh; gap: 16px;
+  }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading p {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px; color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  #error-msg {
+    display: none;
+    background: #1a0a0a;
+    border: 1px solid #f5424244;
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 32px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: #f54242;
+    line-height: 1.7;
+  }
+
+  @media (max-width: 700px) {
+    header { padding: 16px; }
+    main { padding: 16px; }
+    .tabs { padding: 0 16px; }
+    .chart-grid { grid-template-columns: 1fr; }
+    .chart-grid.thirds { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ TRAINING LOG</h1>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div id="sync-status">
+      <div id="sync-dot"></div>
+      <span id="sync-text">connecting...</span>
+    </div>
+    <button id="refresh-btn" onclick="loadData()">↻ REFRESH</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('overview')">Overview</div>
+  <div class="tab" onclick="switchTab('strength')">Strength</div>
+  <div class="tab" onclick="switchTab('volume')">Volume</div>
+  <div class="tab" onclick="switchTab('calendar')">Calendar</div>
+  <div class="tab" onclick="switchTab('records')">Records</div>
+</div>
+
+<div id="loading"><div class="spinner"></div><p>FETCHING LIVE DATA...</p></div>
+<div id="error-msg"></div>
+
+<main id="app" style="display:none;">
+
+  <!-- OVERVIEW -->
+  <div class="panel active" id="panel-overview">
+    <div class="stat-grid" id="stat-grid"></div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Compound 1RM Trends (Epley)</div>
+        <div class="chart-wrap"><canvas id="chart-1rm"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Session Volume (kg)</div>
+        <div class="chart-wrap"><canvas id="chart-vol-session"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STRENGTH -->
+  <div class="panel" id="panel-strength">
+    <div class="control-row">
+      <label>Exercise</label>
+      <select id="exercise-select" onchange="renderStrength()"></select>
+      <label>Metric</label>
+      <select id="metric-select" onchange="renderStrength()">
+        <option value="weight">Weight (kg)</option>
+        <option value="e1rm">Estimated 1RM</option>
+        <option value="volume">Session Volume</option>
+      </select>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title" id="strength-title">Progression</div>
+      <div class="chart-wrap tall"><canvas id="chart-strength"></canvas></div>
+    </div>
+  </div>
+
+  <!-- VOLUME -->
+  <div class="panel" id="panel-volume">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Volume by Split</div>
+        <div class="chart-wrap"><canvas id="chart-split-vol"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Weekly Volume Trend</div>
+        <div class="chart-wrap"><canvas id="chart-weekly-vol"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Volume per Session (by Split Type)</div>
+      <div class="chart-wrap tall"><canvas id="chart-session-split"></canvas></div>
+    </div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div class="panel" id="panel-calendar">
+    <div class="stat-grid" id="cal-stats"></div>
+    <div class="chart-card">
+      <div class="chart-title">Training Calendar</div>
+      <div id="calendar-wrap"></div>
+    </div>
+  </div>
+
+  <!-- RECORDS -->
+  <div class="panel" id="panel-records">
+    <div class="control-row">
+      <label>Filter</label>
+      <input type="text" id="records-filter" placeholder="search exercise..." oninput="renderRecords()">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Exercise</th>
+            <th>Best Weight</th>
+            <th>Sets × Reps</th>
+            <th>Est. 1RM</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody id="records-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const PUBLISHED_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ34WkKf9PO-PLgsZO8ODDJOtRMOj9IgFoCpzTslJBIw08Ch9IOsah1pKR30PmBsN0fFJZO1SQRwI/pub?gid=419130402&single=true&output=csv';
+
+let DATA = [];
+let charts = {};
+
+// ─── FETCH ───────────────────────────────────────────────
+async function loadData() {
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('error-msg').style.display = 'none';
+  document.getElementById('sync-dot').className = '';
+  document.getElementById('sync-text').textContent = 'connecting...';
+
+  try {
+    const res = await fetch(PUBLISHED_CSV_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const csv = await res.text();
+    DATA = parseCSV(csv);
+    if (!DATA.length) throw new Error('No data rows found in LOG sheet');
+
+    document.getElementById('sync-dot').className = 'live';
+    document.getElementById('sync-text').textContent = `${DATA.length} rows · ${new Date().toLocaleTimeString()}`;
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+
+    buildAll();
+  } catch (err) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('sync-dot').className = 'error';
+    document.getElementById('sync-text').textContent = 'error';
+    const errEl = document.getElementById('error-msg');
+    errEl.style.display = 'block';
+    errEl.innerHTML = `<strong>Could not load sheet data</strong><br><br>
+    Make sure your Google Sheet is still published to web (Arkiv → Dela → Publicera på webben).<br><br>
+    Error: ${err.message}<br><br>
+    Expected columns: Date, Day #, Program, Exercise, Weight (kg), Sets, Reps`;
+  }
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  // Skip header row (row 0)
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    if (!cols[0] || !cols[4]) continue; // need date + weight
+    const dateRaw = cols[0].replace(/"/g, '').trim();
+    const date = parseDate(dateRaw);
+    if (!date) continue;
+    const weight = parseFloat(cols[4]);
+    const sets = parseInt(cols[5]) || 1;
+    const reps = parseInt(cols[6]) || 1;
+    if (isNaN(weight) || weight <= 0) continue;
+    rows.push({
+      date,
+      dateStr: date.toISOString().slice(0, 10),
+      day: parseInt(cols[1]) || 0,
+      program: (cols[2] || '').replace(/"/g, '').trim(),
+      exercise: (cols[3] || '').replace(/"/g, '').trim(),
+      weight,
+      sets,
+      reps,
+      volume: weight * sets * reps,
+      e1rm: Math.round(weight * (1 + reps / 30) * 10) / 10
+    });
+  }
+  return rows.sort((a, b) => a.date - b.date);
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '', inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') { inQuote = !inQuote; continue; }
+    if (line[i] === ',' && !inQuote) { result.push(cur); cur = ''; continue; }
+    cur += line[i];
+  }
+  result.push(cur);
+  return result;
+}
+
+function parseDate(s) {
+  // Try various formats
+  const clean = s.trim();
+  // ISO
+  let d = new Date(clean);
+  if (!isNaN(d)) return d;
+  // DD/MM/YYYY
+  const dmy = clean.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmy) return new Date(`${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`);
+  return null;
+}
+
+// ─── HELPERS ─────────────────────────────────────────────
+const fmtDate = d => new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+const splitColor = p => {
+  if (!p) return '#555';
+  const l = p.toLowerCase();
+  if (l.includes('push')) return '#c8f542';
+  if (l.includes('pull')) return '#42f5c8';
+  if (l.includes('legs') || l.includes('leg')) return '#f5a742';
+  if (l.includes('core')) return '#f542a7';
+  return '#888';
+};
+const COMPOUNDS = ['Barbell Bench Press', 'Barbell Row', 'Overhead Press', 'Squat', 'Deadlift', 'Pull-Ups'];
+
+function groupBy(arr, key) {
+  return arr.reduce((acc, r) => {
+    (acc[r[key]] = acc[r[key]] || []).push(r);
+    return acc;
+  }, {});
+}
+
+function e1rm(w, r) { return Math.round(w * (1 + r / 30) * 10) / 10; }
+
+function makeChart(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, cfg);
+}
+
+const CHART_DEFAULTS = {
+  plugins: { legend: { labels: { color: '#888', font: { family: 'DM Mono', size: 10 }, boxWidth: 10 } } },
+  scales: {
+    x: { ticks: { color: '#555', font: { family: 'DM Mono', size: 10 } }, grid: { color: '#1a1a1a' } },
+    y: { ticks: { color: '#555', font: { family: 'DM Mono', size: 10 } }, grid: { color: '#1a1a1a' } }
+  }
+};
+
+// ─── BUILD ALL ────────────────────────────────────────────
+function buildAll() {
+  buildOverview();
+  buildStrengthSelect();
+  renderStrength();
+  buildVolume();
+  buildCalendar();
+  renderRecords();
+}
+
+// ─── OVERVIEW ─────────────────────────────────────────────
+function buildOverview() {
+  const sessions = [...new Set(DATA.map(r => r.dateStr))];
+  const totalVol = DATA.reduce((s, r) => s + r.volume, 0);
+  const exercises = [...new Set(DATA.map(r => r.exercise))];
+  const weeks = [...new Set(DATA.map(r => {
+    const d = new Date(r.date);
+    const dow = d.getDay();
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+    return monday.toISOString().slice(0, 10);
+  }))];
+  const avgPerWeek = (sessions.length / weeks.length).toFixed(1);
+
+  document.getElementById('stat-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Sessions</div><div class="stat-value">${sessions.length}</div><div class="stat-sub">total logged</div></div>
+    <div class="stat-card"><div class="stat-label">Exercises</div><div class="stat-value">${exercises.length}</div><div class="stat-sub">unique movements</div></div>
+    <div class="stat-card"><div class="stat-label">Total Volume</div><div class="stat-value">${(totalVol/1000).toFixed(0)}t</div><div class="stat-sub">${totalVol.toLocaleString()} kg lifted</div></div>
+    <div class="stat-card"><div class="stat-label">Avg / Week</div><div class="stat-value">${avgPerWeek}</div><div class="stat-sub">sessions per week</div></div>
+    <div class="stat-card"><div class="stat-label">Weeks Tracked</div><div class="stat-value">${weeks.length}</div><div class="stat-sub">weeks of data</div></div>
+  `;
+
+  // 1RM chart
+  const compoundData = {};
+  COMPOUNDS.forEach(ex => {
+    const rows = DATA.filter(r => r.exercise.toLowerCase().includes(ex.toLowerCase()));
+    if (!rows.length) return;
+    const byDate = groupBy(rows, 'dateStr');
+    compoundData[ex] = Object.entries(byDate).map(([d, rs]) => ({
+      x: d, y: Math.max(...rs.map(r => e1rm(r.weight, r.reps)))
+    }));
+  });
+
+  const colors = ['#c8f542','#42f5c8','#f5a742','#f542a7','#42a7f5','#a742f5'];
+  const datasets1rm = Object.entries(compoundData).map(([name, pts], i) => ({
+    label: name.replace('Barbell ', '').replace('Pull-Ups / Cable Lat Pulldown', 'Pull-Ups'),
+    data: pts, borderColor: colors[i], backgroundColor: 'transparent',
+    borderWidth: 2, pointRadius: 3, pointBackgroundColor: colors[i], tension: 0.3
+  }));
+
+  const allDates1rm = [...new Set(datasets1rm.flatMap(d => d.data.map(p => p.x)))].sort();
+  makeChart('chart-1rm', {
+    type: 'line',
+    data: { labels: allDates1rm.map(fmtDate), datasets: datasets1rm.map(ds => ({
+      ...ds,
+      data: allDates1rm.map(d => { const p = ds.data.find(x => x.x === d); return p ? p.y : null; })
+    })) },
+    options: { ...CHART_DEFAULTS, responsive: true, maintainAspectRatio: false,
+      spanGaps: true, plugins: { ...CHART_DEFAULTS.plugins } }
+  });
+
+  // Session volume
+  const sessionVols = sessions.map(d => ({
+    date: d,
+    vol: DATA.filter(r => r.dateStr === d).reduce((s, r) => s + r.volume, 0),
+    program: DATA.find(r => r.dateStr === d)?.program || ''
+  }));
+
+  makeChart('chart-vol-session', {
+    type: 'bar',
+    data: {
+      labels: sessionVols.map(s => fmtDate(s.date)),
+      datasets: [{
+        data: sessionVols.map(s => s.vol),
+        backgroundColor: sessionVols.map(s => splitColor(s.program) + 'cc'),
+        borderColor: sessionVols.map(s => splitColor(s.program)),
+        borderWidth: 1, borderRadius: 3
+      }]
+    },
+    options: { ...CHART_DEFAULTS, responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } } }
+  });
+}
+
+// ─── STRENGTH ─────────────────────────────────────────────
+function buildStrengthSelect() {
+  const exercises = [...new Set(DATA.map(r => r.exercise))].sort();
+  const sel = document.getElementById('exercise-select');
+  sel.innerHTML = exercises.map(e => `<option value="${e}">${e}</option>`).join('');
+  // Default to first compound found
+  const firstCompound = exercises.find(e => COMPOUNDS.some(c => e.toLowerCase().includes(c.toLowerCase())));
+  if (firstCompound) sel.value = firstCompound;
+}
+
+function renderStrength() {
+  const ex = document.getElementById('exercise-select').value;
+  const metric = document.getElementById('metric-select').value;
+  const rows = DATA.filter(r => r.exercise === ex);
+  const byDate = groupBy(rows, 'dateStr');
+
+  const labels = Object.keys(byDate).sort().map(fmtDate);
+  const vals = Object.entries(byDate).sort((a,b) => a[0].localeCompare(b[0])).map(([, rs]) => {
+    if (metric === 'e1rm') return Math.max(...rs.map(r => e1rm(r.weight, r.reps)));
+    if (metric === 'volume') return rs.reduce((s, r) => s + r.volume, 0);
+    return Math.max(...rs.map(r => r.weight));
+  });
+
+  const metricLabels = { weight: 'Weight (kg)', e1rm: 'Est. 1RM (kg)', volume: 'Volume (kg)' };
+  document.getElementById('strength-title').textContent = `${ex} — ${metricLabels[metric]}`;
+
+  makeChart('chart-strength', {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: metricLabels[metric],
+        data: vals,
+        borderColor: '#c8f542',
+        backgroundColor: 'rgba(200,245,66,0.07)',
+        borderWidth: 2, pointRadius: 4, pointBackgroundColor: '#c8f542',
+        tension: 0.3, fill: true
+      }]
+    },
+    options: { ...CHART_DEFAULTS, responsive: true, maintainAspectRatio: false }
+  });
+}
+
+// ─── VOLUME ───────────────────────────────────────────────
+function buildVolume() {
+  // By split
+  const splits = groupBy(DATA, 'program');
+  const splitNames = Object.keys(splits);
+  const splitVols = splitNames.map(s => splits[s].reduce((sum, r) => sum + r.volume, 0));
+
+  makeChart('chart-split-vol', {
+    type: 'doughnut',
+    data: {
+      labels: splitNames,
+      datasets: [{ data: splitVols, backgroundColor: splitNames.map(s => splitColor(s) + 'cc'), borderColor: splitNames.map(splitColor), borderWidth: 1 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'right', labels: { color: '#888', font: { family: 'DM Mono', size: 10 }, boxWidth: 10 } } } }
+  });
+
+  // Weekly
+  const weekMap = {};
+  DATA.forEach(r => {
+    const d = new Date(r.date);
+    const dow = d.getDay();
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+    const wk = monday.toISOString().slice(0, 10);
+    weekMap[wk] = (weekMap[wk] || 0) + r.volume;
+  });
+  const wkLabels = Object.keys(weekMap).sort();
+  makeChart('chart-weekly-vol', {
+    type: 'bar',
+    data: {
+      labels: wkLabels.map(d => 'Wk ' + fmtDate(d)),
+      datasets: [{ label: 'Weekly Volume', data: wkLabels.map(w => weekMap[w]),
+        backgroundColor: '#42f5c8aa', borderColor: '#42f5c8', borderWidth: 1, borderRadius: 4 }]
+    },
+    options: { ...CHART_DEFAULTS, responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+
+  // Session × split stacked
+  const sessions = [...new Set(DATA.map(r => r.dateStr))].sort();
+  const allSplits = [...new Set(DATA.map(r => r.program))];
+  const colors2 = allSplits.map(splitColor);
+
+  makeChart('chart-session-split', {
+    type: 'bar',
+    data: {
+      labels: sessions.map(fmtDate),
+      datasets: allSplits.map((sp, i) => ({
+        label: sp,
+        data: sessions.map(d => DATA.filter(r => r.dateStr === d && r.program === sp).reduce((s, r) => s + r.volume, 0)),
+        backgroundColor: colors2[i] + 'bb', borderColor: colors2[i], borderWidth: 1, borderRadius: 2
+      }))
+    },
+    options: { ...CHART_DEFAULTS, responsive: true, maintainAspectRatio: false,
+      scales: { ...CHART_DEFAULTS.scales, x: { ...CHART_DEFAULTS.scales.x, stacked: true }, y: { ...CHART_DEFAULTS.scales.y, stacked: true } } }
+  });
+}
+
+// ─── CALENDAR ─────────────────────────────────────────────
+function buildCalendar() {
+  const sessions = [...new Set(DATA.map(r => r.dateStr))];
+  const sessionMap = {};
+  sessions.forEach(d => {
+    sessionMap[d] = DATA.find(r => r.dateStr === d)?.program || '';
+  });
+
+  const dates = Object.keys(sessionMap).sort();
+  if (!dates.length) return;
+
+  const start = new Date(dates[0]);
+  const end = new Date(dates[dates.length - 1]);
+
+  // Go to Monday of start week
+  const cur = new Date(start);
+  const dow = cur.getDay();
+  cur.setDate(cur.getDate() - (dow === 0 ? 6 : dow - 1));
+
+  let html = '<div class="cal-header">';
+  ['M','T','W','T','F','S','S'].forEach(d => { html += `<div class="cal-day-name">${d}</div>`; });
+  html += '</div><div class="cal-grid">';
+
+  while (cur <= end) {
+    const ds = cur.toISOString().slice(0, 10);
+    const prog = sessionMap[ds];
+    const col = prog ? splitColor(prog) : null;
+    const label = prog ? prog.replace('Push ','P').replace('Pull ','PL').replace('Legs','L').replace('Core','C') : '';
+    if (col) {
+      html += `<div class="cal-cell trained" title="${ds}: ${prog}" style="background:${col};">
+        <span>${cur.getDate()}</span>
+        <span class="cal-label" style="color:rgba(0,0,0,0.6)">${label}</span>
+      </div>`;
+    } else {
+      // Check if it's in range
+      const inRange = cur >= start && cur <= end;
+      html += `<div class="cal-cell${inRange ? '' : ' empty'}" title="${ds}">${inRange ? cur.getDate() : ''}</div>`;
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  html += '</div>';
+
+  // Legend
+  const splitTypes = [...new Set(DATA.map(r => r.program))];
+  html += '<div style="display:flex;gap:16px;margin-top:12px;flex-wrap:wrap;">';
+  splitTypes.forEach(s => {
+    html += `<div style="display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:10px;color:#888;">
+      <div style="width:10px;height:10px;border-radius:2px;background:${splitColor(s)}"></div>${s}</div>`;
+  });
+  html += '</div>';
+
+  document.getElementById('calendar-wrap').innerHTML = html;
+
+  // Cal stats
+  const streak = calcStreak(sessions.sort());
+  document.getElementById('cal-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Sessions</div><div class="stat-value">${sessions.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Current Streak</div><div class="stat-value">${streak}</div><div class="stat-sub">days</div></div>
+    <div class="stat-card"><div class="stat-label">Rest Days</div><div class="stat-value">${Math.round((end - start) / 86400000) + 1 - sessions.length}</div><div class="stat-sub">in tracked period</div></div>
+  `;
+}
+
+function calcStreak(sortedDates) {
+  if (!sortedDates.length) return 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const last = sortedDates[sortedDates.length - 1];
+  if (last !== today && last !== yesterday) return 0;
+  let streak = 1;
+  for (let i = sortedDates.length - 2; i >= 0; i--) {
+    const diff = (new Date(sortedDates[i + 1]) - new Date(sortedDates[i])) / 86400000;
+    if (diff === 1) streak++;
+    else break;
+  }
+  return streak;
+}
+
+// ─── RECORDS ──────────────────────────────────────────────
+function renderRecords() {
+  const filter = document.getElementById('records-filter').value.toLowerCase();
+  const exercises = [...new Set(DATA.map(r => r.exercise))];
+
+  const records = exercises.map(ex => {
+    const rows = DATA.filter(r => r.exercise === ex);
+    const best = rows.reduce((best, r) => {
+      const v = e1rm(r.weight, r.reps);
+      return v > best.e1rm ? { ...r, e1rm: v } : best;
+    }, { e1rm: 0 });
+    return best;
+  }).filter(r => r.e1rm > 0).sort((a, b) => b.e1rm - a.e1rm);
+
+  const filtered = filter ? records.filter(r => r.exercise.toLowerCase().includes(filter)) : records;
+
+  document.getElementById('records-tbody').innerHTML = filtered.map((r, i) => `
+    <tr>
+      <td><span class="rank ${i < 3 ? 'top' : ''}">${i + 1}</span></td>
+      <td>${r.exercise}</td>
+      <td><span class="weight-val">${r.weight}</span> <span style="color:var(--muted);font-size:11px">kg</span></td>
+      <td style="color:var(--muted)">${r.sets}×${r.reps}</td>
+      <td><span class="e1rm-val">${r.e1rm}</span> <span style="color:var(--muted);font-size:11px">kg</span></td>
+      <td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:11px">${fmtDate(r.dateStr)}</td>
+    </tr>
+  `).join('');
+}
+
+// ─── TABS ─────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['overview','strength','volume','calendar','records'][i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => {
+    p.classList.toggle('active', p.id === 'panel-' + name);
+  });
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>
