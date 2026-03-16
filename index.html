@@ -161,6 +161,26 @@ tr:hover td { background: var(--surface2); }
 #error-msg { display: none; background: rgba(255,107,53,0.06); border: 1px solid rgba(255,107,53,0.3); border-radius: 6px; padding: 20px 24px; margin: 32px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent3); line-height: 1.8; }
 #app { display: none; }
 
+.pr-badge {
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(57,255,110,0.1);border:1px solid rgba(57,255,110,0.3);
+  border-radius:20px;padding:4px 12px;
+  font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);
+  white-space:nowrap;
+}
+.plateau-tag {
+  background:rgba(255,107,53,0.12);border:1px solid rgba(255,107,53,0.3);
+  border-radius:4px;padding:3px 10px;
+  font-family:'DM Mono',monospace;font-size:10px;color:var(--accent3);
+  white-space:nowrap;
+}
+.wow-table { width:100%;border-collapse:collapse;font-size:13px; }
+.wow-table th { font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border); }
+.wow-table td { padding:9px 12px;border-bottom:1px solid var(--dim); }
+.wow-table tr:hover td { background:var(--surface2); }
+.wow-up { color:var(--accent);font-weight:600; }
+.wow-down { color:var(--accent3); }
+.wow-same { color:var(--muted); }
 @media (max-width:700px) {
   header,.streak-hero,.goals-section,main{padding-left:16px;padding-right:16px;}
   .tabs{padding:0 16px;}
@@ -194,6 +214,19 @@ tr:hover td { background: var(--surface2); }
     <div class="streak-meta" id="streak-meta"></div>
   </div>
 
+  <!-- PR TICKER -->
+  <div id="pr-ticker" style="display:none;padding:12px 32px;border-bottom:1px solid var(--border);background:rgba(57,255,110,0.04);overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;" id="pr-ticker-inner"></div>
+  </div>
+
+  <!-- PLATEAU ALERTS -->
+  <div id="plateau-bar" style="display:none;padding:12px 32px;border-bottom:1px solid var(--border);background:rgba(255,107,53,0.04);">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent3);">⚠ PLATEAU DETECTED</span>
+      <div id="plateau-tags" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+    </div>
+  </div>
+
   <div class="goals-section">
     <div class="section-title">2026 Goals</div>
     <div class="goals-grid" id="goals-grid"></div>
@@ -201,6 +234,7 @@ tr:hover td { background: var(--surface2); }
 
   <div class="tabs">
     <div class="tab active" onclick="switchTab('overview')">Overview</div>
+    <div class="tab" onclick="switchTab('goals')">Goals 2026</div>
     <div class="tab" onclick="switchTab('strength')">Strength</div>
     <div class="tab" onclick="switchTab('volume')">Volume</div>
     <div class="tab" onclick="switchTab('calendar')">Calendar</div>
@@ -210,6 +244,12 @@ tr:hover td { background: var(--surface2); }
   <main>
     <div class="panel active" id="panel-overview">
       <div class="stat-grid" id="stat-grid"></div>
+      <!-- WEEK ON WEEK -->
+      <div class="chart-card" style="margin-bottom:14px;">
+        <div class="chart-title">This Week vs Last Week</div>
+        <div id="wow-table"></div>
+      </div>
+
       <div class="chart-grid">
         <div class="chart-card"><div class="chart-title">Compound Est. 1RM Trends</div><div class="chart-wrap tall"><canvas id="chart-1rm"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">Session Volume (adjusted)</div><div class="chart-wrap tall"><canvas id="chart-vol-session"></canvas></div></div>
@@ -247,6 +287,10 @@ tr:hover td { background: var(--surface2); }
       <div class="chart-card"><div class="chart-title">Training Calendar</div><div id="calendar-wrap"></div></div>
     </div>
 
+    <div class="panel" id="panel-goals">
+      <div id="goals-table-wrap"></div>
+    </div>
+
     <div class="panel" id="panel-records">
       <div class="control-row">
         <span class="ctrl-label">Search</span>
@@ -267,19 +311,15 @@ const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ34WkKf9PO-PLg
 const BODY_WEIGHT = 80;
 const CORE_FACTOR = 0.08;
 const CORE_WORDS = ['hanging leg','pallof','lying bench leg','sit-up','side plank','plank','crunch','ab wheel'];
+// These exercises use bodyweight (80kg) as placeholder — ignore weight, track reps/time only
+const BW_EXERCISES = ['hanging leg raises','sit-up','lying bench leg','side plank'];
 
 const GOALS = [
-  { match:'Barbell Bench Press',    label:'Bench Press',        goal:80,  type:'e1rm',   bw:'100% BW' },
-  { match:'Barbell Overhead Press', label:'Overhead Press',     goal:60,  type:'e1rm',   bw:'75% BW'  },
-  { match:'Barbell Row',            label:'Barbell Row',        goal:80,  type:'e1rm',   bw:'100% BW' },
-  { match:'Barbell Back Squat',     label:'Back Squat',         goal:100, type:'e1rm',   bw:'125% BW' },
-  { match:'Romanian Deadlift',      label:'Romanian DL',        goal:100, type:'e1rm',   bw:'125% BW' },
-  { match:'Close-Grip Bench',       label:'Close-Grip Bench',   goal:70,  type:'e1rm',   bw:'87% BW'  },
-  { match:'Incline Dumbbell Press', label:'Incline DB Press',   goal:30,  type:'weight', bw:'75% BW'  },
-  { match:'Single-Arm Dumbbell Row',label:'Single-Arm DB Row',  goal:35,  type:'weight', bw:'87% BW'  },
-  { match:'Bulgarian Split',        label:'Bulgarian Split Squat',goal:40,type:'weight', bw:'50% BW'  },
-  { match:'Side Plank',             label:'Side Plank',         goal:120, type:'reps',   bw:null       },
-  { match:'Hanging Leg Raises',     label:'Hanging Leg Raises', goal:15,  type:'reps',   bw:null       },
+  { match:'Barbell Bench Press',    label:'Bench Press',   goal:80,  type:'e1rm', bw:'100% BW' },
+  { match:'Barbell Overhead Press', label:'Overhead Press',goal:60,  type:'e1rm', bw:'75% BW'  },
+  { match:'Barbell Row',            label:'Barbell Row',   goal:80,  type:'e1rm', bw:'100% BW' },
+  { match:'Barbell Back Squat',     label:'Back Squat',    goal:100, type:'e1rm', bw:'125% BW' },
+  { match:'Romanian Deadlift',      label:'Romanian DL',   goal:100, type:'e1rm', bw:'125% BW' },
 ];
 
 const SPLIT_COLORS = {'push a':'#39ff6e','push b':'#2bc456','pull a':'#4dd9ff','pull b':'#38a8cc','legs':'#ff9f3f','core':'#c97bff','skiing':'#e8f0ea','ski':'#e8f0ea','other':'#ff6b6b'};
@@ -323,19 +363,22 @@ function parseCSV(text){
     const ds=toDS(date);
     const program=(c[2]||'').replace(/"/g,'').trim();
     const exercise=(c[3]||'').replace(/"/g,'').trim();
+    const dayNum=parseInt((c[1]||'').replace(/"/g,'').trim())||0;
     const weight=parseFloat((c[4]||'').replace(/"/g,'').replace(',','.').trim());
     const sets=parseInt(c[5])||0;
     const reps=parseInt(c[6])||0;
 
     if(!exercise||isNaN(weight)||weight<=0){
-      rows.push({date,dateStr:ds,program,exercise,weight:0,sets:0,reps:0,volume:0,e1rm:0,isActivity:true});
+      rows.push({date,dateStr:ds,program,exercise,weight:0,sets:0,reps:0,volume:0,e1rm:0,isActivity:true,dayNum});
       continue;
     }
     const isCore=CORE_WORDS.some(w=>exercise.toLowerCase().includes(w));
     const rawVol=weight*sets*reps;
     const volume=isCore?rawVol*CORE_FACTOR:rawVol;
-    const e1rm=reps>0?Math.round(weight*(1+reps/30)*10)/10:weight;
-    rows.push({date,dateStr:ds,program,exercise,weight,sets,reps,volume,e1rm,isActivity:false,isCore});
+    const isBW=BW_EXERCISES.some(w=>exercise.toLowerCase().includes(w));
+    const e1rm=isBW?0:(reps>0?Math.round(weight*(1+reps/30)*10)/10:weight);
+    const displayWeight=isBW?0:weight;
+    rows.push({date,dateStr:ds,program,exercise,weight:displayWeight,sets,reps,volume,e1rm,isActivity:false,isCore,isBW,dayNum});
   }
   return rows.sort((a,b)=>a.date-b.date);
 }
@@ -382,20 +425,23 @@ const CO={
   }
 };
 
-function buildAll(){buildStreak();buildGoals();buildOverview();buildStrengthSelect();renderStrength();buildVolume();buildCalendar();renderRecords();}
+function buildAll(){buildStreak();buildGoals();buildGoalsTab();buildPRTicker();buildPlateauDetector();buildOverview();buildStrengthSelect();renderStrength();buildVolume();buildCalendar();renderRecords();}
 
 function buildStreak(){
   const all=[...new Set(DATA.map(r=>r.dateStr))].sort();
-  const streak=calcStreak(all);
+  // Streak = max Day# in LOG (you track this manually)
+  const streak=Math.max(...DATA.map(r=>r.dayNum||0),0);
   document.getElementById('streak-num').textContent=streak;
   const gymUniq=[...new Set(DATA.filter(r=>!r.isActivity).map(r=>r.dateStr))].length;
   const actUniq=[...new Set(DATA.filter(r=>r.isActivity).map(r=>r.dateStr))].length;
   const totalVol=DATA.filter(r=>!r.isActivity).reduce((s,r)=>s+r.volume,0);
+  // Active days = cumulative total across all streaks (all unique active dates ever)
+  const activeDays=all.length;
   document.getElementById('streak-meta').innerHTML=`
     <div class="streak-stat"><div class="s-val">${gymUniq}</div><div class="s-label">Gym Sessions</div></div>
     <div class="streak-stat"><div class="s-val">${actUniq}</div><div class="s-label">Other Active</div></div>
     <div class="streak-stat"><div class="s-val">${(totalVol/1000).toFixed(1)}t</div><div class="s-label">Total Volume</div></div>
-    <div class="streak-stat"><div class="s-val">${all.length}</div><div class="s-label">Active Days</div></div>`;
+    <div class="streak-stat"><div class="s-val">${activeDays}</div><div class="s-label">Active Days Total</div></div>`;
 }
 
 function calcStreak(sorted){
@@ -455,12 +501,63 @@ function buildOverview(){
   const totalVol=gym.reduce((s,r)=>s+r.volume,0);
   const weeks=[...new Set(gym.map(r=>mondayOf(r.date)))];
   const avg=weeks.length?(sessions.length/weeks.length).toFixed(1):0;
+  // 30-day rolling average: count all unique active days (gym + activity) in last 30 days, express as per-week rate
+  const allActiveDates=[...new Set(DATA.map(r=>r.dateStr))];
+  const cutoff=new Date(Date.now()-30*86400000);
+  const activeLast30=allActiveDates.filter(d=>new Date(d+'T12:00:00')>=cutoff).length;
+  const rolling30=(activeLast30/30*7).toFixed(1);
   document.getElementById('stat-grid').innerHTML=`
     <div class="stat-card"><div class="stat-label">Sessions</div><div class="stat-value">${sessions.length}</div><div class="stat-sub">gym sessions</div></div>
     <div class="stat-card"><div class="stat-label">Exercises</div><div class="stat-value">${exercises.length}</div><div class="stat-sub">unique movements</div></div>
     <div class="stat-card"><div class="stat-label">Volume</div><div class="stat-value">${(totalVol/1000).toFixed(1)}t</div><div class="stat-sub">${Math.round(totalVol).toLocaleString()} kg</div></div>
-    <div class="stat-card"><div class="stat-label">Per Week</div><div class="stat-value">${avg}</div><div class="stat-sub">sessions avg</div></div>
+    <div class="stat-card"><div class="stat-label">30d Avg</div><div class="stat-value">${rolling30}</div><div class="stat-sub">active days/week</div></div>
     <div class="stat-card"><div class="stat-label">Weeks</div><div class="stat-value">${weeks.length}</div><div class="stat-sub">tracked</div></div>`;
+
+  // Week on week
+  const allActive=[...new Set(DATA.map(r=>r.dateStr))];
+  const todayD=new Date(); todayD.setHours(12,0,0,0);
+  const thisMonday=new Date(todayD); const tdow=thisMonday.getDay(); thisMonday.setDate(thisMonday.getDate()-(tdow===0?6:tdow-1));
+  const lastMonday=new Date(thisMonday); lastMonday.setDate(lastMonday.getDate()-7);
+  const thisMondayStr=toDS(thisMonday); const lastMondayStr=toDS(lastMonday);
+  const thisSundayStr=toDS(new Date(thisMonday.getTime()+6*86400000));
+  const lastSundayStr=toDS(new Date(lastMonday.getTime()+6*86400000));
+
+  const thisWeekRows=gym.filter(r=>r.dateStr>=thisMondayStr&&r.dateStr<=thisSundayStr);
+  const lastWeekRows=gym.filter(r=>r.dateStr>=lastMondayStr&&r.dateStr<=lastSundayStr);
+  const thisWeekActive=[...new Set(DATA.filter(r=>r.dateStr>=thisMondayStr&&r.dateStr<=thisSundayStr).map(r=>r.dateStr))].length;
+  const lastWeekActive=[...new Set(DATA.filter(r=>r.dateStr>=lastMondayStr&&r.dateStr<=lastSundayStr).map(r=>r.dateStr))].length;
+  const thisVol=Math.round(thisWeekRows.reduce((s,r)=>s+r.volume,0));
+  const lastVol=Math.round(lastWeekRows.reduce((s,r)=>s+r.volume,0));
+
+  function wowCell(cur,prev,suffix=''){
+    if(!prev) return `<td style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;">${cur}${suffix} <span style="font-size:10px;color:var(--muted)">new</span></td>`;
+    const diff=cur-prev; const pct=Math.round(diff/prev*100);
+    const cls=diff>0?'wow-up':diff<0?'wow-down':'wow-same';
+    const arrow=diff>0?'↑':diff<0?'↓':'→';
+    return `<td><span style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;">${cur}${suffix}</span> <span class="${cls}" style="font-size:11px;font-family:'DM Mono',monospace;">${arrow}${Math.abs(pct)}%</span></td>`;
+  }
+
+  // Top compound 1RMs this week vs last
+  const compoundsWoW=['Barbell Bench Press','Barbell Row','Barbell Back Squat'];
+  let compoundRows='';
+  compoundsWoW.forEach(ex=>{
+    const shortName=ex.replace('Barbell ','');
+    const thisE=thisWeekRows.filter(r=>r.exercise.toLowerCase().includes(ex.toLowerCase()));
+    const lastE=lastWeekRows.filter(r=>r.exercise.toLowerCase().includes(ex.toLowerCase()));
+    const cur=thisE.length?Math.max(...thisE.map(r=>r.e1rm)):0;
+    const prev=lastE.length?Math.max(...lastE.map(r=>r.e1rm)):0;
+    if(cur||prev) compoundRows+=`<tr><td style="font-weight:500;padding:9px 12px;">${shortName} 1RM</td><td style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;color:var(--muted);padding:9px 12px;">${prev||'—'}${prev?'kg':''}</td>${wowCell(cur,prev,'kg')}</tr>`;
+  });
+
+  document.getElementById('wow-table').innerHTML=`
+    <table class="wow-table">
+      <thead><tr><th>Metric</th><th>Last Week</th><th>This Week</th></tr></thead>
+      <tbody>
+        <tr><td style="font-weight:500;padding:9px 12px;">Active Days</td><td style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;color:var(--muted);padding:9px 12px;">${lastWeekActive}/7</td>${wowCell(thisWeekActive,lastWeekActive,'/7')}</tr>
+        <tr><td style="font-weight:500;padding:9px 12px;">Total Volume</td><td style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;color:var(--muted);padding:9px 12px;">${lastVol?lastVol.toLocaleString()+'kg':'—'}</td>${wowCell(thisVol,lastVol,'kg')}</tr>
+        ${compoundRows}
+      </tbody>
+    </table>`;
 
   const compounds=['Barbell Bench Press','Barbell Overhead Press','Barbell Row','Barbell Back Squat','Romanian Deadlift'];
   const cols=['#39ff6e','#4dd9ff','#ffe94d','#ff9f3f','#c97bff'];
@@ -473,7 +570,13 @@ function buildOverview(){
   makeChart('chart-1rm',{type:'line',data:{labels:allD.map(fmtD),datasets:ds1rm},options:{...CO}});
 
   const sVols=sessions.map(d=>({date:d,vol:gym.filter(r=>r.dateStr===d).reduce((s,r)=>s+r.volume,0),program:gym.find(r=>r.dateStr===d)?.program||''}));
-  makeChart('chart-vol-session',{type:'bar',data:{labels:sVols.map(s=>fmtD(s.date)),datasets:[{data:sVols.map(s=>Math.round(s.vol)),backgroundColor:sVols.map(s=>splitColor(s.program)+'99'),borderColor:sVols.map(s=>splitColor(s.program)),borderWidth:1,borderRadius:3}]},options:{...CO,plugins:{legend:{display:false}}}});
+  const splitTypes=[...new Set(sVols.map(s=>s.program))];
+  const volDatasets=splitTypes.map(sp=>({
+    label:sp||'Other',
+    data:sVols.map(s=>s.program===sp?Math.round(s.vol):0),
+    backgroundColor:splitColor(sp)+'99',borderColor:splitColor(sp),borderWidth:1,borderRadius:3,
+  }));
+  makeChart('chart-vol-session',{type:'bar',data:{labels:sVols.map(s=>fmtD(s.date)),datasets:volDatasets},options:{...CO,scales:{x:{...CO.scales.x,stacked:true},y:{...CO.scales.y,stacked:true}},plugins:{legend:{labels:{color:'#4a6450',font:{family:'DM Mono',size:10},boxWidth:10,padding:10}}}}});
 }
 
 function buildStrengthSelect(){
@@ -574,12 +677,171 @@ function renderRecords(){
     let gPct=null;
     if(g){const cur=g.type==='reps'?r.bestR:g.type==='weight'?r.bestW:r.bestE;gPct=Math.min(100,Math.round(cur/g.goal*100));}
     const gHtml=gPct!==null?`<div style="display:flex;align-items:center;gap:8px;"><div style="width:60px;height:4px;background:var(--dim);border-radius:2px;"><div style="width:${gPct}%;height:100%;background:${gPct>=100?'var(--accent)':'var(--accent2)'};border-radius:2px;"></div></div><span style="font-family:'DM Mono',monospace;font-size:10px;color:${gPct>=100?'var(--accent)':'var(--muted)'}">${gPct}%</span></div>`:'<span style="color:var(--dim);font-size:11px">—</span>';
-    return`<tr><td><span class="big-num" style="color:${i<3?'var(--accent)':'var(--dim)'}">${i+1}</span></td><td style="font-weight:500">${r.ex}</td><td><span class="big-num">${r.bestW}</span> <span style="color:var(--muted);font-size:11px">kg</span></td><td style="color:var(--muted);font-family:'DM Mono',monospace">${r.bestR}</td><td><span class="big-num" style="color:var(--accent2)">${r.bestE}</span> <span style="color:var(--muted);font-size:11px">kg</span></td><td>${gHtml}</td><td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:11px">${fmtD(r.date)}</td></tr>`;
+    const weightCell=r.isBW?'<span style="color:var(--muted);font-size:11px">bodyweight</span>':`<span class="big-num">${r.bestW}</span> <span style="color:var(--muted);font-size:11px">kg</span>`;
+    const e1rmCell=r.isBW?`<span class="big-num" style="color:var(--accent2)">${r.bestR}</span> <span style="color:var(--muted);font-size:11px">reps</span>`:`<span class="big-num" style="color:var(--accent2)">${r.bestE}</span> <span style="color:var(--muted);font-size:11px">kg</span>`;
+    return`<tr><td><span class="big-num" style="color:${i<3?'var(--accent)':'var(--dim)'}">${i+1}</span></td><td style="font-weight:500">${r.ex}</td><td>${weightCell}</td><td style="color:var(--muted);font-family:'DM Mono',monospace">${r.bestR}</td><td>${e1rmCell}</td><td>${gHtml}</td><td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:11px">${fmtD(r.date)}</td></tr>`;
   }).join('');
 }
 
+
+
+// ── PR TICKER ─────────────────────────────────────────────
+function buildPRTicker(){
+  const gym=DATA.filter(r=>!r.isActivity&&!r.isBW);
+  // Find PRs set in the most recent session date
+  const latestDate=[...new Set(gym.map(r=>r.dateStr))].sort().pop();
+  if(!latestDate) return;
+  const latestRows=gym.filter(r=>r.dateStr===latestDate);
+  const prMessages=[];
+
+  const exercises=[...new Set(latestRows.map(r=>r.exercise))];
+  exercises.forEach(ex=>{
+    const allRows=gym.filter(r=>r.exercise===ex);
+    const prevBest=Math.max(...allRows.filter(r=>r.dateStr!==latestDate).map(r=>r.e1rm),0);
+    const todayBest=Math.max(...latestRows.filter(r=>r.exercise===ex).map(r=>r.e1rm),0);
+    if(todayBest>prevBest&&prevBest>0){
+      prMessages.push(`🏆 PR: ${ex.replace('Barbell ','')} — ${todayBest}kg est. 1RM`);
+    }
+  });
+
+  const ticker=document.getElementById('pr-ticker');
+  const inner=document.getElementById('pr-ticker-inner');
+  if(prMessages.length){
+    ticker.style.display='block';
+    inner.innerHTML=prMessages.map(m=>`<div class="pr-badge">${m}</div>`).join('');
+  }
+}
+
+// ── PLATEAU DETECTOR ──────────────────────────────────────
+function buildPlateauDetector(){
+  const gym=DATA.filter(r=>!r.isActivity&&!r.isBW);
+  const compounds=['Barbell Bench Press','Barbell Overhead Press','Barbell Row','Barbell Back Squat','Romanian Deadlift','Pull-Ups','Close-Grip Bench'];
+  const plateaus=[];
+  const cutoff=new Date(Date.now()-21*86400000); // 3 weeks
+
+  compounds.forEach(ex=>{
+    const rows=gym.filter(r=>r.exercise.toLowerCase().includes(ex.toLowerCase())).sort((a,b)=>a.date-b.date);
+    if(rows.length<2) return;
+    const allTimeBest=Math.max(...rows.map(r=>r.e1rm));
+    const recentRows=rows.filter(r=>new Date(r.dateStr+'T12:00:00')>=cutoff);
+    if(!recentRows.length) return;
+    const recentBest=Math.max(...recentRows.map(r=>r.e1rm));
+    // Plateau if recent best hasn't exceeded the best from before the cutoff period
+    const olderBest=Math.max(...rows.filter(r=>new Date(r.dateStr+'T12:00:00')<cutoff).map(r=>r.e1rm),0);
+    if(olderBest>0&&recentBest<=olderBest){
+      plateaus.push(ex.replace('Barbell ',''));
+    }
+  });
+
+  const bar=document.getElementById('plateau-bar');
+  const tags=document.getElementById('plateau-tags');
+  if(plateaus.length){
+    bar.style.display='block';
+    tags.innerHTML=plateaus.map(p=>`<div class="plateau-tag">📊 ${p}</div>`).join('');
+  }
+}
+
+function buildGoalsTab(){
+  const gym=DATA.filter(r=>!r.isActivity);
+  const byEx=groupBy(gym,'exercise');
+
+  const FULL_GOALS=[
+    {session:'Push A',   exercise:'Barbell Bench Press',       goal:80,  type:'e1rm',   unit:'kg',   basis:'100% BW'},
+    {session:'Push A',   exercise:'Incline Dumbbell Press',    goal:30,  type:'weight',  unit:'kg',   basis:'75% BW'},
+    {session:'Push B',   exercise:'Barbell Overhead Press',    goal:60,  type:'e1rm',   unit:'kg',   basis:'75% BW'},
+    {session:'Push B',   exercise:'Close-Grip Bench Press',    goal:70,  type:'e1rm',   unit:'kg',   basis:'87% BW'},
+    {session:'Pull A',   exercise:'Pull-Ups',                  goal:12,  type:'reps',   unit:'reps', basis:'BW reps'},
+    {session:'Pull A',   exercise:'Barbell Row',               goal:80,  type:'e1rm',   unit:'kg',   basis:'100% BW'},
+    {session:'Pull B',   exercise:'Single-Arm Dumbbell Row',   goal:35,  type:'weight',  unit:'kg',   basis:'87% BW'},
+    {session:'Pull B',   exercise:'Seated Cable Row',          goal:80,  type:'weight',  unit:'kg',   basis:'100% BW'},
+    {session:'Legs',     exercise:'Barbell Back Squat',        goal:100, type:'e1rm',   unit:'kg',   basis:'125% BW'},
+    {session:'Legs',     exercise:'Romanian Deadlift',         goal:100, type:'e1rm',   unit:'kg',   basis:'125% BW'},
+    {session:'Legs',     exercise:'Bulgarian Split Squats',    goal:40,  type:'weight',  unit:'kg',   basis:'50% BW'},
+    {session:'Legs',     exercise:'Standing Calf Raises',      goal:120, type:'weight',  unit:'kg',   basis:'150% BW'},
+    {session:'Core',     exercise:'Hanging Leg Raises',        goal:15,  type:'reps',   unit:'reps', basis:'reps'},
+    {session:'Core',     exercise:'Pallof Press',              goal:20,  type:'weight',  unit:'kg',   basis:'absolute'},
+    {session:'Core',     exercise:'Side Plank',                goal:120, type:'reps',   unit:'sec',  basis:'time'},
+    {session:'Core',     exercise:'Sit-Ups',                   goal:30,  type:'reps',   unit:'reps', basis:'reps'},
+  ];
+
+  const sessionColors={
+    'Push A':'#39ff6e','Push B':'#2bc456',
+    'Pull A':'#4dd9ff','Pull B':'#38a8cc',
+    'Legs':'#ff9f3f','Core':'#c97bff'
+  };
+
+  // Group by session
+  const sessions=[...new Set(FULL_GOALS.map(g=>g.session))];
+  let html='<div style="display:flex;flex-direction:column;gap:24px;">';
+
+  sessions.forEach(sess=>{
+    const sessGoals=FULL_GOALS.filter(g=>g.session===sess);
+    const col=sessionColors[sess]||'#888';
+
+    html+=`<div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <div style="width:3px;height:20px;background:${col};border-radius:2px;"></div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${col}">${sess}</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);">
+            <th style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 16px;text-align:left;">Exercise</th>
+            <th style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 16px;text-align:left;">Basis</th>
+            <th style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 16px;text-align:right;">Goal</th>
+            <th style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 16px;text-align:right;">Actual</th>
+            <th style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 16px;text-align:right;">Est. 1RM</th>
+            <th style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 16px;text-align:left;width:180px;">Progress</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+    sessGoals.forEach((g,i)=>{
+      const matchKey=Object.keys(byEx).find(k=>k.toLowerCase().includes(g.exercise.toLowerCase().split(' ').slice(0,2).join(' ')));
+      const rows=matchKey?byEx[matchKey]:[];
+      const bestW=rows.length?Math.max(...rows.map(r=>r.weight)):0;
+      const bestE=rows.length?Math.max(...rows.map(r=>r.e1rm)):0;
+      const bestR=rows.length?Math.max(...rows.map(r=>r.reps)):0;
+
+      let cur;
+      if(g.type==='reps') cur=bestR;
+      else if(g.type==='weight') cur=bestW;
+      else cur=bestE;
+
+      const pct=g.goal>0?Math.min(100,Math.round(cur/g.goal*100)):0;
+      const done=pct>=100;
+      const barColor=done?'var(--accent)':pct>66?'var(--accent2)':pct>33?'var(--accent3)':'#ff4444';
+      const e1rmDisplay=g.type==='reps'?`${bestR} reps`:g.type==='weight'?'—':`${bestE} kg`;
+      const actualDisplay=bestW>0?`${bestW} kg`:'—';
+      const bgRow=i%2===0?'background:var(--surface)':'background:var(--surface2)';
+
+      html+=`<tr style="${bgRow}">
+        <td style="padding:11px 16px;font-weight:500;">${g.exercise}</td>
+        <td style="padding:11px 16px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">${g.basis}</td>
+        <td style="padding:11px 16px;text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;color:var(--muted);">${g.goal} <span style="font-size:11px">${g.unit}</span></td>
+        <td style="padding:11px 16px;text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;">${actualDisplay}</td>
+        <td style="padding:11px 16px;text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;color:var(--accent2);">${e1rmDisplay}</td>
+        <td style="padding:11px 16px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="flex:1;height:6px;background:var(--dim);border-radius:3px;overflow:hidden;">
+              <div style="width:${pct}%;height:100%;background:${barColor};border-radius:3px;${done?'box-shadow:0 0 8px var(--accent)':''}"></div>
+            </div>
+            <div style="font-family:'DM Mono',monospace;font-size:11px;color:${done?'var(--accent)':'var(--text)'};width:36px;text-align:right;">${cur>0?pct+'%':'—'}</div>
+          </div>
+        </td>
+      </tr>`;
+    });
+
+    html+='</tbody></table></div></div>';
+  });
+
+  html+='</div>';
+  document.getElementById('goals-table-wrap').innerHTML=html;
+}
+
 function switchTab(name){
-  const tabs=['overview','strength','volume','calendar','records'];
+  const tabs=['overview','goals','strength','volume','calendar','records'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',tabs[i]===name));
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+name));
 }
