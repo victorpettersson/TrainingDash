@@ -212,18 +212,9 @@ tr:hover td { background: var(--surface2); }
       <span class="label">day streak 🔥</span>
     </div>
     <div class="streak-meta" id="streak-meta"></div>
-  </div>
-
-  <!-- PR TICKER -->
-  <div id="pr-ticker" style="display:none;padding:12px 32px;border-bottom:1px solid var(--border);background:rgba(57,255,110,0.04);overflow:hidden;">
-    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;" id="pr-ticker-inner"></div>
-  </div>
-
-  <!-- PLATEAU ALERTS -->
-  <div id="plateau-bar" style="display:none;padding:12px 32px;border-bottom:1px solid var(--border);background:rgba(255,107,53,0.04);">
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent3);">⚠ PLATEAU DETECTED</span>
-      <div id="plateau-tags" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+    <div id="streak-right" style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;margin-left:auto;">
+      <div id="pr-ticker-inner" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;"></div>
+      <div id="plateau-tags" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;"></div>
     </div>
   </div>
 
@@ -244,15 +235,10 @@ tr:hover td { background: var(--surface2); }
   <main>
     <div class="panel active" id="panel-overview">
       <div class="stat-grid" id="stat-grid"></div>
-      <!-- WEEK ON WEEK -->
-      <div class="chart-card" style="margin-bottom:14px;">
-        <div class="chart-title">This Week vs Last Week</div>
-        <div id="wow-table"></div>
-      </div>
-
-      <div class="chart-grid">
+      <div class="chart-grid" style="grid-template-columns:1fr 1fr 320px;">
         <div class="chart-card"><div class="chart-title">Compound Est. 1RM Trends</div><div class="chart-wrap tall"><canvas id="chart-1rm"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">Session Volume (adjusted)</div><div class="chart-wrap tall"><canvas id="chart-vol-session"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">This Week vs Last Week</div><div id="wow-table"></div></div>
       </div>
     </div>
 
@@ -328,6 +314,126 @@ function splitAbbr(p){ if(!p) return '?'; const l=p.toLowerCase(); if(l.includes
 
 let DATA=[], charts={};
 
+const FALLBACK_CSV = `Date,Day #,Program,Exercise,Weight (kg),Sets,Reps
+2/16/26 16:48,49,Pull B,Single-Arm Dumbbell Row,20,3,12
+2/16/26 16:48,49,Pull B,Seated Cable Row,70,3,10
+2/16/26 16:48,49,Pull B,Straight-Arm Cable Pulldown,20,3,15
+2/16/26 16:48,49,Pull B,Hammer Curls,12,3,10
+2/16/26 16:48,49,Pull B,Lying Dumbbell Front Raise On Incline Bench,4,3,10
+2/16/26 16:48,49,Pull B,Cable Curls,20,3,10
+2026-02-17,50,Push A,Barbell Bench Press,40,4,11
+2026-02-17,50,Push A,Incline Dumbbell Press,32,3,8
+2026-02-17,50,Push A,Cable Flyes,16,3,10
+2026-02-17,50,Push A,Cable Triceps Pushdown,25,3,12
+2026-02-17,50,Push A,Bench press machine at Pullman,40,3,8
+2026-02-17,50,Push A,Single dumbell triceps seated,6,3,8
+2026-02-18,51,Pull A,Pull-Ups / Cable Lat Pulldown,80,4,6
+2026-02-18,51,Pull A,Barbell Row,40,3,12
+2026-02-18,51,Pull A,Cable Face Pulls,20,3,12
+2026-02-18,51,Pull A,Dumbbell or Cable Curls,10,3,8
+2026-02-18,51,Pull A,Lat pulldown,50,3,8
+2026-02-18,51,Pull A,bicep hammer curl,10,3,8
+2026-02-18,52,Legs,Barbell Back Squat,45,4,10
+2026-02-18,52,Legs,Romanian Deadlift,40,3,12
+2026-02-18,52,Legs,Bulgarian Split Squats,28,3,8
+2026-02-18,52,Legs,Standing Calf Raises,40,3,25
+2026-02-18,52,Core,Hanging Leg Raises,0,3,8
+2026-02-18,52,Core,Pallof Press,10,4,10
+2026-02-18,52,Core,Lying Bench Leg Raises,0,3,15
+2026-02-18,52,Core,Sit-Ups,0,3,15
+2026-02-19,53,Push B,Barbell Overhead Press,17.5,4,8
+2026-02-19,53,Push B,Cable or Dumbbell Lateral Raises,7.5,3,10
+2026-02-19,53,Push B,Close-Grip Bench Press,40,3,10
+2026-02-19,53,Push B,Overhead Cable Triceps Extension,20,3,12
+2026-02-20,54,Pull B,Single-Arm Dumbbell Row,20,3,15
+2026-02-20,54,Pull B,Seated Cable Row,30,3,8
+2026-02-20,54,Pull B,Straight-Arm Cable Pulldown,22.5,3,15
+2026-02-20,54,Pull B,Hammer Curls,14,3,8
+2026-02-20,54,Pull B,Low Cable Row,45,3,8
+2026-02-20,54,Pull B,Cable curl,20,3,10
+2026-02-21,55,Core,Hanging Leg Raises,0,3,10
+2026-02-21,55,Core,Pallof Press,15,3,12
+2026-02-21,55,Core,Lying Bench Leg Raises,0,3,15
+2026-02-21,55,Core,Sit-Ups,0,4,20
+2026-02-21,55,Core,Side Plank,0,2,45
+2026-02-23,56,Push A,Barbell Bench Press,55,4,6
+2026-02-23,56,Push A,Incline Dumbbell Press,36,3,8
+2026-02-23,56,Push A,Cable Flyes,10,3,8
+2026-02-25,57,Pull A,Pull-Ups / Cable Lat Pulldown,80,4,6
+2026-02-25,57,Pull A,Barbell Row,50,3,8
+2026-02-25,57,Pull A,Cable Face Pulls,12.5,3,12
+2026-02-25,57,Pull A,Dumbbell or Cable Curls,14.5,3,6
+2026-02-25,58,Legs,Romanian Deadlift,44,3,12
+2026-02-25,58,Legs,Bulgarian Split Squats,44,3,8
+2026-02-25,58,Legs,Standing Calf Raises,44,3,25
+2026-02-26,59,Push B,Barbell Overhead Press,17.5,4,6
+2026-02-26,59,Push B,Cable or Dumbbell Lateral Raises,8,3,10
+2026-02-26,59,Push B,Close-Grip Bench Press,20,3,8
+2026-02-26,59,Push B,Overhead Cable Triceps Extension,15,3,12
+2026-02-27,60,,Skiing day 1,,,
+2026-02-28,61,,Skiing day 2,,,
+2026-03-01,62,,Skiing day 3,,,
+2026-03-02,63,Pull B,Single-Arm Dumbbell Row,22,3,10
+2026-03-02,63,Pull B,Seated Cable Row,35,3,12
+2026-03-02,63,Pull B,Straight-Arm Cable Pulldown,15,3,12
+2026-03-02,63,Pull B,Hammer Curls,14.5,3,8
+2026-03-03,64,Core,Hanging Leg Raises,0,3,8
+2026-03-03,64,Core,Pallof Press,5,6,15
+2026-03-03,64,Core,Lying Bench Leg Raises,0,3,15
+2026-03-03,64,Core,Sit-Ups,0,3,12
+2026-03-03,64,Core,Side Plank,0,4,45
+2026-03-04,65,Push A,Barbell Bench Press,55,4,7
+2026-03-04,65,Push A,Incline Dumbbell Press,18,3,8
+2026-03-04,65,Push A,Cable Flyes,10,3,10
+2026-03-04,65,Push A,Cable Triceps Pushdown,15,3,12
+2026-03-05,66,Pull A,Pull-Ups / Cable Lat Pulldown,80,4,7
+2026-03-05,66,Pull A,Barbell Row,52.5,3,8
+2026-03-05,66,Pull A,Cable Face Pulls,20,3,12
+2026-03-05,66,Pull A,Dumbbell or Cable Curls,25,3,9
+2026-03-05,66,Other 2,Cable curl,15,3,7
+2026-03-06,67,Legs,Barbell Back Squat,50,4,8
+2026-03-06,67,Legs,Romanian Deadlift,50,3,10
+2026-03-06,67,Legs,Bulgarian Split Squats,24,3,8
+2026-03-06,67,Legs,Standing Calf Raises,50,3,25
+2026-03-07,68,Push B,Barbell Overhead Press,40,4,5
+2026-03-07,68,Push B,Cable or Dumbbell Lateral Raises,24,3,8
+2026-03-07,68,Push B,Close-Grip Bench Press,40,3,8
+2026-03-07,68,Push B,Overhead Cable Triceps Extension,20,3,10
+2026-03-08,69,Pull B,Single-Arm Dumbbell Row,22,3,12
+2026-03-08,69,Pull B,Seated Cable Row,35,3,15
+2026-03-08,69,Pull B,Straight-Arm Cable Pulldown,20,3,8
+2026-03-09,70,Core,Hanging Leg Raises,0,3,8
+2026-03-09,70,Core,Pallof Press,10,3,15
+2026-03-09,70,Core,Lying Bench Leg Raises,0,3,15
+2026-03-10,71,Push A,Barbell Bench Press,55,4,8
+2026-03-10,71,Push A,Incline Dumbbell Press,40,3,7
+2026-03-10,71,Push A,Cable Flyes,10,3,8
+2026-03-10,71,Push A,Cable Triceps Pushdown,20,3,10
+2026-03-11,72,Pull A,Pull-Ups / Cable Lat Pulldown,80,4,8
+2026-03-11,72,Pull A,Barbell Row,55,3,6
+2026-03-11,72,Pull A,Cable Face Pulls,15,3,15
+2026-03-11,72,Pull A,Dumbbell or Cable Curls,29,3,6
+2026-03-12,73,Legs,Barbell Back Squat,52.5,4,8
+2026-03-12,73,Legs,Romanian Deadlift,52.5,3,8
+2026-03-12,73,Legs,Bulgarian Split Squats,25,3,8
+2026-03-12,73,Legs,Standing Calf Raises,52.5,3,25
+2026-03-13,74,Push B,Barbell Overhead Press,40,4,5
+2026-03-13,74,Push B,Cable or Dumbbell Lateral Raises,20,3,8
+2026-03-13,74,Push B,Close-Grip Bench Press,42.5,3,7
+2026-03-13,74,Push B,Overhead Cable Triceps Extension,10,3,10
+2026-03-14,75,Pull B,Single-Arm Dumbbell Row,22,3,12
+2026-03-14,75,Pull B,Seated Cable Row,35,3,15
+2026-03-14,75,Pull B,Straight-Arm Cable Pulldown,20,3,9
+2026-03-14,75,Pull B,Hammer Curls,12,3,10
+2026-03-15,76,Core,Hanging Leg Raises,0,3,8
+2026-03-15,76,Core,Pallof Press,10,3,15
+2026-03-15,76,Core,Sit-Ups,0,3,25
+2026-03-15,76,Core,Side Plank,0,2,45
+2026-03-16,77,Push A,Incline Dumbbell Press,28,3,12
+2026-03-16,77,Push A,Cable Flyes,20,3,8
+2026-03-16,77,Push A,Cable Triceps Pushdown,20,3,15
+2026-03-16,77,Other 1,Cable chest press,40,3,10`;
+
 async function loadData(){
   document.getElementById('sync-dot').className='';
   document.getElementById('sync-text').textContent='connecting...';
@@ -344,12 +450,15 @@ async function loadData(){
     document.getElementById('app').style.display='block';
     buildAll();
   }catch(err){
+    // Fall back to embedded data for preview
+    console.warn('Live fetch failed, using embedded data:', err.message);
+    DATA=parseCSV(FALLBACK_CSV);
     document.getElementById('sync-dot').className='error';
-    document.getElementById('sync-text').textContent='error';
+    document.getElementById('sync-text').textContent='preview data (live fetch failed)';
     document.getElementById('loading').style.display='none';
-    const el=document.getElementById('error-msg');
-    el.style.display='block';
-    el.innerHTML=`<strong>Could not load sheet data</strong><br><br>Make sure your Google Sheet is still published to web (Arkiv → Dela → Publicera på webben).<br><br>Error: ${err.message}<br><br>Expected columns: Date, Day #, Program, Exercise, Weight (kg), Sets, Reps`;
+    document.getElementById('error-msg').style.display='none';
+    document.getElementById('app').style.display='block';
+    buildAll();
   }
 }
 
@@ -704,10 +813,8 @@ function buildPRTicker(){
     }
   });
 
-  const ticker=document.getElementById('pr-ticker');
   const inner=document.getElementById('pr-ticker-inner');
   if(prMessages.length){
-    ticker.style.display='block';
     inner.innerHTML=prMessages.map(m=>`<div class="pr-badge">${m}</div>`).join('');
   }
 }
@@ -733,11 +840,9 @@ function buildPlateauDetector(){
     }
   });
 
-  const bar=document.getElementById('plateau-bar');
   const tags=document.getElementById('plateau-tags');
   if(plateaus.length){
-    bar.style.display='block';
-    tags.innerHTML=plateaus.map(p=>`<div class="plateau-tag">📊 ${p}</div>`).join('');
+    tags.innerHTML=`<span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--accent3);">⚠ plateau:</span>`+plateaus.map(p=>`<div class="plateau-tag">📊 ${p}</div>`).join('');
   }
 }
 
@@ -747,19 +852,19 @@ function buildGoalsTab(){
 
   const FULL_GOALS=[
     {session:'Push A',   exercise:'Barbell Bench Press',       goal:80,  type:'e1rm',   unit:'kg',   basis:'100% BW'},
-    {session:'Push A',   exercise:'Incline Dumbbell Press',    goal:30,  type:'weight',  unit:'kg',   basis:'75% BW'},
+    {session:'Push A',   exercise:'Incline Dumbbell Press',    goal:60,  type:'e1rm',   unit:'kg',   basis:'75% BW (total)'},
     {session:'Push B',   exercise:'Barbell Overhead Press',    goal:60,  type:'e1rm',   unit:'kg',   basis:'75% BW'},
     {session:'Push B',   exercise:'Close-Grip Bench Press',    goal:70,  type:'e1rm',   unit:'kg',   basis:'87% BW'},
     {session:'Pull A',   exercise:'Pull-Ups',                  goal:12,  type:'reps',   unit:'reps', basis:'BW reps'},
     {session:'Pull A',   exercise:'Barbell Row',               goal:80,  type:'e1rm',   unit:'kg',   basis:'100% BW'},
-    {session:'Pull B',   exercise:'Single-Arm Dumbbell Row',   goal:35,  type:'weight',  unit:'kg',   basis:'87% BW'},
-    {session:'Pull B',   exercise:'Seated Cable Row',          goal:80,  type:'weight',  unit:'kg',   basis:'100% BW'},
+    {session:'Pull B',   exercise:'Single-Arm Dumbbell Row',   goal:35,  type:'e1rm',   unit:'kg',   basis:'87% BW (per arm)'},
+    {session:'Pull B',   exercise:'Seated Cable Row',          goal:80,  type:'e1rm',   unit:'kg',   basis:'100% BW'},
     {session:'Legs',     exercise:'Barbell Back Squat',        goal:100, type:'e1rm',   unit:'kg',   basis:'125% BW'},
     {session:'Legs',     exercise:'Romanian Deadlift',         goal:100, type:'e1rm',   unit:'kg',   basis:'125% BW'},
-    {session:'Legs',     exercise:'Bulgarian Split Squats',    goal:40,  type:'weight',  unit:'kg',   basis:'50% BW'},
-    {session:'Legs',     exercise:'Standing Calf Raises',      goal:120, type:'weight',  unit:'kg',   basis:'150% BW'},
+    {session:'Legs',     exercise:'Bulgarian Split Squats',    goal:40,  type:'e1rm',   unit:'kg',   basis:'50% BW (total)'},
+    {session:'Legs',     exercise:'Standing Calf Raises',      goal:120, type:'e1rm',   unit:'kg',   basis:'150% BW'},
     {session:'Core',     exercise:'Hanging Leg Raises',        goal:15,  type:'reps',   unit:'reps', basis:'reps'},
-    {session:'Core',     exercise:'Pallof Press',              goal:20,  type:'weight',  unit:'kg',   basis:'absolute'},
+    {session:'Core',     exercise:'Pallof Press',              goal:20,  type:'e1rm',   unit:'kg',   basis:'absolute'},
     {session:'Core',     exercise:'Side Plank',                goal:120, type:'reps',   unit:'sec',  basis:'time'},
     {session:'Core',     exercise:'Sit-Ups',                   goal:30,  type:'reps',   unit:'reps', basis:'reps'},
   ];
