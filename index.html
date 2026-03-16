@@ -403,7 +403,7 @@
 </main>
 
 <script>
-const PUBLISHED_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ34WkKf9PO-PLgsZO8ODDJOtRMOj9IgFoCpzTslJBIw08Ch9IOsah1pKR30PmBsN0fFJZO1SQRwI/pub?gid=419130402&single=true&output=csv';
+const PUBLISHED_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ34WkKf9PO-PLgsZO8ODDJOtRMOj9IgFoCpzTslJBIw08Ch9IOsah1pKlGR30PmBsN0fFJZO1SQRwI/pub?gid=419130402&single=true&output=csv';
 
 let DATA = [];
 let charts = {};
@@ -417,7 +417,7 @@ async function loadData() {
   document.getElementById('sync-text').textContent = 'connecting...';
 
   try {
-    const res = await fetch(PUBLISHED_CSV_URL);
+    let res = await fetch(PUBLISHED_CSV_URL);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const csv = await res.text();
     DATA = parseCSV(csv);
@@ -436,7 +436,9 @@ async function loadData() {
     const errEl = document.getElementById('error-msg');
     errEl.style.display = 'block';
     errEl.innerHTML = `<strong>Could not load sheet data</strong><br><br>
-    Make sure your Google Sheet is still published to web (Arkiv → Dela → Publicera på webben).<br><br>
+    Make sure your Google Sheet is shared as "Anyone with the link can view".<br><br>
+    Sheet ID: ${SHEET_ID}<br>
+    Sheet tab: ${SHEET_NAME}<br><br>
     Error: ${err.message}<br><br>
     Expected columns: Date, Day #, Program, Exercise, Weight (kg), Sets, Reps`;
   }
